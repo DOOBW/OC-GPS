@@ -103,7 +103,7 @@ function gps.locate(TIMEOUT, DEBUG)
     print('Finding position...')
   end
   modem.open(CHANNEL_GPS)
-  --modem.setStrength()
+  modem.setStrength(math.huge)
   modem.broadcast(CHANNEL_GPS, 'PING')
   local fixes = {}
   local pos1, pos2 = nil, nil
