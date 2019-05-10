@@ -1,9 +1,13 @@
 local component = require('component')
-local modem = nil
+local computer = require('computer')
+local modem, deb = nil, nil
 if component.isAvailable('modem') then
   modem = component.modem
 end
-local computer = require('computer')
+if component.isAvailable('debug') then
+  deb = component.debug
+end
+
 local floor, sqrt, abs = math.floor, math.sqrt, math.abs
 
 local CHANNEL_GPS, gps = 65534, {}
@@ -56,7 +60,7 @@ local function trilaterate(A, B, C)
   local i = dot(ex, a2c)
   local ey = norm(sub(mul(ex, i), a2c))
   local j = dot(ey, a2c)
-  local ez = cross(ex, ey) -- cross
+  local ez = cross(ex, ey)
   local r1 = A.d
   local r2 = B.d
   local r3 = C.d
@@ -93,6 +97,13 @@ local function narrow(p1, p2, fix)
 end
 
 function gps.locate(TIMEOUT, DEBUG)
+  if deb then
+    local X, Y, Z = floor(deb.getX()), floor(deb.getY()), floor(deb.getZ())
+    if DEBUG then
+      print('Position obtained by the magic '..X..', '..Y..', '..Z)
+    end
+    return X, Y, Z
+  end
   if not modem or not modem.isWireless() then
     if DEBUG then
       print('No wireless modem attached')
@@ -128,7 +139,7 @@ function gps.locate(TIMEOUT, DEBUG)
           end
         end        
       end
-      if pos1 and not pos2 then -- ??
+      if pos1 and not pos2 then
         break
       end
     end
