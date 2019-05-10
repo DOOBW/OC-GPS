@@ -7,20 +7,23 @@ local X, Y, Z = nil, nil, nil
 local command = args[1]
 
 local firmware = [[CHANNEL_GPS = 65534
-
-local modem = component.proxy(component.list('modem')())
-local eeprom = component.proxy(component.list('eeprom')())
-
-if not modem or not modem.isWireless() then
-  error('No wireless modem attached', 0)
-end
-
-local floor, sqrt, abs = math.floor, math.sqrt, math.abs
-
 X, Y, Z = nil, nil, nil
 
-local A1, A4, A5, C5, D5, E6 = 55, 440, 880, 523.251, 587.33, 1318.51
+local function add_component(name)
+  name = component.list(name)()
+  if name then
+    return component.proxy(name)
+  end
+end
 
+local modem = add_component('modem')
+local eeprom = add_component('eeprom')
+local deb = add_component('debug')
+
+if not modem or not modem.isWireless() then error('No wireless modem attached', 0) end
+
+local floor, sqrt, abs = math.floor, math.sqrt, math.abs
+local A1, A4, A5, C5, D5, E6 = 55, 440, 880, 523.251, 587.33, 1318.51
 local label = load(eeprom.getLabel())
 if label then 
   label()
@@ -30,57 +33,31 @@ modem.setWakeMessage('PING')
 modem.setStrength(math.huge)
 
 local function round(v, m)
-  m = m or 1.0
-  return {
-    x = floor((v.x+(m*0.5))/m)*m,
-    y = floor((v.y+(m*0.5))/m)*m,
-    z = floor((v.z+(m*0.5))/m)*m
-  }
-end
-
-local function len(v)
-  return sqrt(v.x^2 + v.y^2 + v.z^2)
+  return {x = floor((v.x+(m*0.5))/m)*m, y = floor((v.y+(m*0.5))/m)*m, z = floor((v.z+(m*0.5))/m)*m}
 end
 
 local function cross(v, b)
   return {x = v.y*b.z-v.z*b.y, y = v.z*b.x-v.x*b.z, z = v.x*b.y-v.y*b.x}
 end
 
-local function dot(v, b)
-  return v.x*b.x + v.y*b.y + v.z*b.z
-end
-
-local function add(v, b)
-  return {x = v.x+b.x, y = v.y+b.y, z = v.z+b.z}
-end
-
-local function sub(v, b)
-  return {x = v.x-b.x, y = v.y-b.y, z = v.z-b.z}
-end
-
-local function mul(v, m)
-  return {x = v.x*m, y = v.y*m, z = v.z*m}
-end
-
-local function norm(v)
-  return mul(v, 1/len(v))
-end
+local function len(v) return sqrt(v.x^2+v.y^2+v.z^2) end
+local function dot(v, b) return v.x*b.x+v.y*b.y+v.z*b.z end
+local function add(v, b) return {x=v.x+b.x, y=v.y+b.y, z=v.z+b.z} end
+local function sub(v, b) return {x=v.x-b.x, y=v.y-b.y, z=v.z-b.z} end
+local function mul(v, m) return {x=v.x*m, y=v.y*m, z=v.z*m} end
+local function norm(v) return mul(v, 1/len(v)) end
 
 local function trilaterate(A, B, C)
-  local a2b = {x = B.x-A.x, y = B.y-A.y, z = B.z-A.z}
-  local a2c = {x = C.x-A.x, y = C.y-A.y, z = C.z-A.z}
+  local a2b = {x=B.x-A.x, y=B.y-A.y, z=B.z-A.z}
+  local a2c = {x=C.x-A.x, y=C.y-A.y, z=C.z-A.z}
   if abs(dot(norm(a2b), norm(a2c))) > 0.999 then
     return nil
   end
-  local d = len(a2b)
-  local ex = norm(a2b)
+  local d, ex = len(a2b), norm(a2b)
   local i = dot(ex, a2c)
   local ey = norm(sub(mul(ex, i), a2c))
-  local j = dot(ey, a2c)
-  local ez = cross(ex, ey) -- cross
-  local r1 = A.d
-  local r2 = B.d
-  local r3 = C.d
+  local j, ez = dot(ey, a2c), cross(ex, ey)
+  local r1, r2, r3 = A.d, B.d, C.d
   local x = (r1^2 - r2^2 + d^2) / (2*d)
   local y = (r1^2 - r3^2 - x^2 + (x-i)^2 + j^2) / (2*j)
   local result = add(A, add(mul(ex, x), mul(ey, y)))
@@ -89,24 +66,22 @@ local function trilaterate(A, B, C)
     local z = sqrt( zSquared )
     local result1 = add(result, mul(ez, z))
     local result2 = add(result, mul(ez, z))
-    local rounded1, rounded2 = round(result1, 0.01), round(result2, 0.01)
-    if rounded1.x ~= rounded2.x or
-       rounded1.y ~= rounded2.y or
-       rounded1.z ~= rounded2.z then
-      return rounded1, rounded2
+    local rnd1, rnd2 = round(result1, 0.01), round(result2, 0.01)
+    if rnd1.x ~= rnd2.x or rnd1.y ~= rnd2.y or rnd1.z ~= rnd2.z then
+      return rnd1, rnd2
     else
-      return rounded1
+      return rnd1
     end
   end
   return round(result, 0.01)
 end
 
 local function narrow(p1, p2, fix)
-  local dist1 = abs(len(sub(p1, fix)) - fix.d)
-  local dist2 = abs(len(sub(p2, fix)) - fix.d)
-  if abs(dist1 - dist2) < 0.01 then
+  local d1 = abs(len(sub(p1, fix))-fix.d)
+  local d2 = abs(len(sub(p2, fix))-fix.d)
+  if abs(d1-d2) < 0.01 then
     return p1, p2
-  elseif dist1 < dist2 then
+  elseif d1 < d2 then
     return round(p1, 0.01)
   else
     return round(p2, 0.01)
@@ -114,6 +89,7 @@ local function narrow(p1, p2, fix)
 end
 
 local function locate()
+  if deb then X, Y, Z = floor(deb.getX()), floor(deb.getY()), floor(deb.getZ()) return true end
   modem.broadcast(CHANNEL_GPS, 'PING')
   local fixes = {}
   local pos1, pos2 = nil, nil
@@ -130,13 +106,11 @@ local function locate()
           if not pos1 then
             pos1, pos2 = trilaterate(fixes[1], fixes[2], fixes[#fixes])
           else
-            pos1, pos2 = narrow(pos1, pos2, fixes[#fixes]) --fixes[math.random(1, #fixes)]
+            pos1, pos2 = narrow(pos1, pos2, fixes[#fixes])
           end
         end        
       end
-      if pos1 and not pos2 then -- ??
-        break
-      end
+      if pos1 and not pos2 then break end
     end
   until computer.uptime() >= deadline
   modem.close(CHANNEL_GPS)
@@ -153,16 +127,14 @@ end
 if not X then
   locate()
   if not X then
-    computer.beep(A1, 0.3)
-    computer.beep(E6, 0.05)
-    computer.beep(A5, 0.2)
+    computer.beep(A1, 0.3) computer.beep(E6, 0.05) computer.beep(A5, 0.2)
     error('Could not determine position', 0)
     computer.shutdown()
   else
-    computer.beep(A4, 0.2)
-    computer.beep(C5, 0.3)
-    computer.beep(D5, 0.2)
-    eeprom.setLabel('X,Y,Z='..X..','..Y..','..Z)
+    if not deb then
+      computer.beep(A4, 0.2) computer.beep(C5, 0.3) computer.beep(D5, 0.2)
+      eeprom.setLabel('X,Y,Z='..X..','..Y..','..Z)
+    end
   end
 end
 
