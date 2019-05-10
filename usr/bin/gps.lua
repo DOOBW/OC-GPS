@@ -1,4 +1,5 @@
 local args = {...}
+package.loaded.gps = nil
 local gps = require('gps')
 local component = require('component')
 local CHANNEL_GPS = 65534
