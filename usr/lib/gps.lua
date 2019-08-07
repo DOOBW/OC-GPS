@@ -100,7 +100,7 @@ function gps.locate(TIMEOUT, DEBUG)
   if deb then
     local X, Y, Z = floor(deb.getX()), floor(deb.getY()), floor(deb.getZ())
     if DEBUG then
-      print('Position obtained by the magic '..X..', '..Y..', '..Z)
+      print('Position obtained by a magic '..X..', '..Y..', '..Z)
     end
     return X, Y, Z
   end
