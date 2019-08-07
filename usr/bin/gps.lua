@@ -9,7 +9,9 @@ local command = args[1]
 local firmware = [[CHANNEL_GPS = 65534
 X, Y, Z = nil, nil, nil
 
-if component.isAvailable('tablet') error('Tablets cannot act as GPS hosts.', )0
+if component.isAvailable('tablet') then
+  error('Tablets cannot act as GPS hosts', 0)
+end
 
 local function add_component(name)
   name = component.list(name)()
