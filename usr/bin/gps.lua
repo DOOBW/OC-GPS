@@ -12,7 +12,7 @@ X, Y, Z = nil, nil, nil
 local function add_component(name)
   name = component.list(name)()
   if name then
-    return component.proxy(name)
+    return assert(component.proxy(name))
   end
 end
 
