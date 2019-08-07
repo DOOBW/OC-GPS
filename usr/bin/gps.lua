@@ -9,6 +9,8 @@ local command = args[1]
 local firmware = [[CHANNEL_GPS = 65534
 X, Y, Z = nil, nil, nil
 
+if component.isAvailable('tablet') error('Tablets cannot act as GPS hosts.', )0
+
 local function add_component(name)
   name = component.list(name)()
   if name then
@@ -152,6 +154,10 @@ end
 if command == 'locate' then
   gps.locate(2, true)
 elseif command == 'host' then
+  if component.isAvailable('tablet') then
+    print('Tablets cannot act as GPS hosts.')
+    return
+  end
   if #args >= 4 then
     X = tonumber(args[2])
     Y = tonumber(args[3])
