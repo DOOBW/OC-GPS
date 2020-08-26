@@ -58,7 +58,7 @@ local function trilaterate(A, B, C)
   local d = len(a2b)
   local ex = norm(a2b)
   local i = dot(ex, a2c)
-  local ey = norm(sub(mul(ex, i), a2c))
+  local ey = norm(sub(a2c, mul(ex, i)))
   local j = dot(ey, a2c)
   local ez = cross(ex, ey)
   local r1 = A.d
@@ -71,7 +71,7 @@ local function trilaterate(A, B, C)
   if zSquared > 0 then
     local z = sqrt( zSquared )
     local result1 = add(result, mul(ez, z))
-    local result2 = add(result, mul(ez, z))
+    local result2 = sub(result, mul(ez, z))
     local rounded1, rounded2 = round(result1, 0.01), round(result2, 0.01)
     if rounded1.x ~= rounded2.x or
        rounded1.y ~= rounded2.y or
